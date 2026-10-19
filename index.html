@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Rates Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    select { padding: 6px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>EUR exchange rates</h1>
+  <p>Updated daily by automation. <a href="https://www.exchangerate-api.com">Rates by ExchangeRate-API</a>.</p>
+  <label>Currency: <select id="currency"></select></label>
+  <canvas id="chart"></canvas>
+  <script>
+    let chart;
+    fetch("data/rates.json")
+      .then(r => r.json())
+      .then(history => {
+        const select = document.getElementById("currency");
+        const currencies = Object.keys(history[history.length - 1].rates);
+        currencies.forEach(c => select.add(new Option(c, c)));
+        select.value = currencies.includes("MKD") ? "MKD" : currencies[0];
+        const draw = () => {
+          const cur = select.value;
+          if (chart) chart.destroy();
+          chart = new Chart(document.getElementById("chart"), {
+            type: "line",
+            data: {
+              labels: history.map(d => d.date),
+              datasets: [{ label: `EUR → ${cur}`, data: history.map(d => d.rates[cur]) }]
+            }
+          });
+        };
+        select.onchange = draw;
+        draw();
+      })
+      .catch(() => document.body.insertAdjacentHTML("beforeend", "<p>No data yet.</p>"));
+  </script>
+</body>
+</html>

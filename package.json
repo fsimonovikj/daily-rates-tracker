@@ -1,0 +1,15 @@
+{
+  "name": "daily-rates-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "fetch": "node scripts/fetch.js",
+    "automation": "node automation/runner.js",
+    "automation:dry-run": "node automation/runner.js --dry-run",
+    "test": "node --test",
+    "automation:heartbeat": "node automation/runner.js --heartbeat"
+  }
+}

@@ -1,0 +1,31 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { updateRates } = require('../scripts/fetch');
+const payload = { result: 'success', base_code: 'EUR', time_last_update_unix: 1792368000, rates: { EUR: 1, MKD: 61.5 } };
+const fetchImpl = async () => ({ ok: true, json: async () => payload });
+test('writes once, skips duplicates and dry run never writes', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rates-test-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'rates.json');
+  assert.equal((await updateRates({ file, fetchImpl, dryRun: true })).changed, true);
+  assert.equal(fs.existsSync(file), false);
+  assert.equal((await updateRates({ file, fetchImpl })).changed, true);
+  const original = fs.readFileSync(file, 'utf8');
+  assert.equal((await updateRates({ file, fetchImpl })).changed, false);
+  assert.equal(fs.readFileSync(file, 'utf8'), original);
+});
+test('HTTP errors, invalid API data, corrupt history and stale data preserve files', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rates-test-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'rates.json');
+  fs.writeFileSync(file, 'broken');
+  await assert.rejects(updateRates({ file, fetchImpl }));
+  assert.equal(fs.readFileSync(file, 'utf8'), 'broken');
+  await assert.rejects(updateRates({ file, fetchImpl: async () => ({ ok: false, status: 503 }) }), /HTTP 503/);
+  await assert.rejects(updateRates({ file, fetchImpl: async () => ({ ok: true, json: async () => ({ ...payload, rates: { EUR: 1, MKD: -1 } }) }) }), /Invalid/);
+  fs.writeFileSync(file, JSON.stringify([{ base: 'EUR', date: '2099-01-01', rates: { EUR: 1 } }]));
+  await assert.rejects(updateRates({ file, fetchImpl }), /older/);
+});
